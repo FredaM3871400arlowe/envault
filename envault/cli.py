@@ -1,105 +1,83 @@
-"""CLI entry point for envault using Click."""
+"""Main CLI entry point for envault."""
 
-import sys
-from pathlib import Path
+from __future__ import annotations
 
 import click
 
 from envault.vault import create_vault, read_vault, update_vault, delete_key
-from envault.importer import import_env_file, export_vault_to_env, merge_env_file_into_vault
+from envault.cli_audit import audit_group
+from envault.cli_profiles import profile_group
+from envault.cli_rotate import rotate_group
+from envault.cli_templates import template_group
 
 
 @click.group()
-def cli():
-    """envault — securely manage and sync .env files using encrypted vaults."""
+def cli() -> None:
+    """envault — secure .env vault manager."""
 
 
 @cli.command("init")
-@click.argument("vault_path")
-@click.password_option("--password", "-p", prompt="Vault password", help="Password to encrypt the vault.")
-def init_vault(vault_path: str, password: str):
-    """Create a new empty encrypted vault at VAULT_PATH."""
-    path = create_vault(vault_path, password)
-    click.echo(f"Vault created at {path}")
+@click.argument("vault")
+@click.password_option(prompt="Vault password")
+def init_vault(vault: str, password: str) -> None:
+    """Initialise a new vault."""
+    path = create_vault(vault, password, {})
+    click.echo(f"Vault created: {path}")
 
 
 @cli.command("set")
-@click.argument("vault_path")
 @click.argument("key")
 @click.argument("value")
-@click.password_option("--password", "-p", prompt="Vault password", confirmation_prompt=False, help="Vault password.")
-def set_key(vault_path: str, key: str, value: str, password: str):
-    """Set KEY=VALUE in the encrypted vault."""
-    try:
-        update_vault(vault_path, password, {key: value})
-        click.echo(f"Set {key} in {vault_path}")
-    except ValueError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
+@click.option("--vault", required=True)
+@click.password_option(prompt="Vault password")
+def set_key(key: str, value: str, vault: str, password: str) -> None:
+    """Set a key in the vault."""
+    data = read_vault(vault, password)
+    data[key] = value
+    update_vault(vault, password, data)
+    click.echo(f"Set {key}.")
 
 
 @cli.command("get")
-@click.argument("vault_path")
 @click.argument("key")
-@click.password_option("--password", "-p", prompt="Vault password", confirmation_prompt=False, help="Vault password.")
-def get_key(vault_path: str, key: str, password: str):
-    """Print the value of KEY from the encrypted vault."""
-    try:
-        data = read_vault(vault_path, password)
-        if key not in data:
-            click.echo(f"Key '{key}' not found.", err=True)
-            sys.exit(1)
-        click.echo(data[key])
-    except ValueError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
+@click.option("--vault", required=True)
+@click.option("--password", prompt=True, hide_input=True)
+def get_key(key: str, vault: str, password: str) -> None:
+    """Get a key from the vault."""
+    data = read_vault(vault, password)
+    if key not in data:
+        click.echo(f"Key '{key}' not found.", err=True)
+        raise SystemExit(1)
+    click.echo(data[key])
 
 
 @cli.command("delete")
-@click.argument("vault_path")
 @click.argument("key")
-@click.password_option("--password", "-p", prompt="Vault password", confirmation_prompt=False, help="Vault password.")
-def delete(vault_path: str, key: str, password: str):
-    """Delete KEY from the encrypted vault."""
-    try:
-        delete_key(vault_path, password, key)
-        click.echo(f"Deleted '{key}' from {vault_path}")
-    except (ValueError, KeyError) as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
+@click.option("--vault", required=True)
+@click.password_option(prompt="Vault password")
+def delete(key: str, vault: str, password: str) -> None:
+    """Delete a key from the vault."""
+    delete_key(vault, password, key)
+    click.echo(f"Deleted {key}.")
 
 
-@cli.command("import")
-@click.argument("env_file")
-@click.argument("vault_path")
-@click.password_option("--password", "-p", prompt="Vault password", help="Password to encrypt the vault.")
-@click.option("--merge", is_flag=True, default=False, help="Merge into existing vault instead of overwriting.")
-def import_cmd(env_file: str, vault_path: str, password: str, merge: bool):
-    """Import an .env file into an encrypted vault."""
-    try:
-        if merge:
-            merge_env_file_into_vault(env_file, vault_path, password)
-            click.echo(f"Merged {env_file} into {vault_path}")
-        else:
-            import_env_file(env_file, vault_path, password)
-            click.echo(f"Imported {env_file} into {vault_path}")
-    except (ValueError, FileNotFoundError) as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
+@cli.command("list")
+@click.option("--vault", required=True)
+@click.option("--password", prompt=True, hide_input=True)
+def list_keys(vault: str, password: str) -> None:
+    """List all keys in the vault."""
+    data = read_vault(vault, password)
+    if not data:
+        click.echo("Vault is empty.")
+        return
+    for key in sorted(data):
+        click.echo(key)
 
 
-@cli.command("export")
-@click.argument("vault_path")
-@click.argument("env_file")
-@click.password_option("--password", "-p", prompt="Vault password", confirmation_prompt=False, help="Vault password.")
-def export_cmd(vault_path: str, env_file: str, password: str):
-    """Export an encrypted vault to a plaintext .env file."""
-    try:
-        export_vault_to_env(vault_path, password, env_file)
-        click.echo(f"Exported {vault_path} to {env_file}")
-    except ValueError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
+cli.add_command(audit_group, "audit")
+cli.add_command(profile_group, "profile")
+cli.add_command(rotate_group, "rotate")
+cli.add_command(template_group, "template")
 
 
 if __name__ == "__main__":

@@ -74,3 +74,23 @@ def merge_env_file_into_vault(
     content = source.read_text(encoding="utf-8")
     updates = parse_env(content)
     return update_vault(vault_path, password, updates)
+
+
+def list_vault_keys(vault_path: str, password: str) -> list:
+    """Return a sorted list of variable names stored in a vault.
+
+    Useful for inspecting vault contents without exposing values.
+
+    Args:
+        vault_path: Path to the vault file.
+        password: Password used to decrypt the vault.
+
+    Returns:
+        Sorted list of key names present in the vault.
+
+    Raises:
+        FileNotFoundError: If the vault file does not exist.
+        ValueError: If the password is incorrect.
+    """
+    env_vars = read_vault(vault_path, password)
+    return sorted(env_vars.keys())

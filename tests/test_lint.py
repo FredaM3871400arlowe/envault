@@ -49,6 +49,13 @@ def test_lint_dict_multiple_issues():
     assert "placeholder" in rules
 
 
+def test_lint_dict_empty_dict():
+    """An empty dict should produce a clean report with no issues."""
+    report = lint_dict({})
+    assert report.ok
+    assert len(report.issues) == 0
+
+
 def test_lint_vault_clean(vault_path):
     report = lint_vault(vault_path, PASSWORD)
     assert report.ok
@@ -70,3 +77,12 @@ def test_format_report_with_issues():
     output = format_report(report)
     assert "issue" in output
     assert "naming" in output or "empty_value" in output
+
+
+def test_format_report_lists_all_rules():
+    """format_report output should mention every rule that was triggered."""
+    report = lint_dict({"bad-key": "", "GOOD_KEY": "todo"})
+    output = format_report(report)
+    triggered_rules = {i.rule for i in report.issues}
+    for rule in triggered_rules:
+        assert rule in output

@@ -67,3 +67,11 @@ def test_run_hooks_failing_command_raises(vault_path):
 def test_run_hooks_no_hooks_returns_empty(vault_path):
     result = run_hooks(vault_path, "post-get")
     assert result == []
+
+
+def test_run_hooks_multiple_commands_all_execute(vault_path):
+    """All commands registered for an event should run and return output in order."""
+    add_hook(vault_path, "post-set", "echo first")
+    add_hook(vault_path, "post-set", "echo second")
+    outputs = run_hooks(vault_path, "post-set")
+    assert outputs == ["first", "second"]

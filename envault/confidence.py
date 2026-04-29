@@ -57,7 +57,10 @@ def _score_key(vault_path: Path, key: str) -> ConfidenceScore:
     for _name, suffix, points, reason in _signals_for(vault_path):
         p = vault_path.with_suffix(suffix)
         if p.exists():
-            data = json.loads(p.read_text())
+            try:
+                data = json.loads(p.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
             if key in data:
                 total += points
                 reasons.append(reason)

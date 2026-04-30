@@ -21,6 +21,12 @@ def test_add_prints_confirmation(runner, vault_path):
     assert "DATABASE_URL" in result.output
 
 
+def test_add_duplicate_shows_error(runner, vault_path):
+    add_bookmark(vault_path, "db", "DATABASE_URL")
+    result = runner.invoke(bookmarks_group, ["add", "db", "OTHER_URL", "--vault", vault_path])
+    assert result.exit_code != 0
+
+
 def test_remove_prints_confirmation(runner, vault_path):
     add_bookmark(vault_path, "db", "DATABASE_URL")
     result = runner.invoke(bookmarks_group, ["remove", "db", "--vault", vault_path])
